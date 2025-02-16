@@ -84,8 +84,24 @@ void setupQuad()
 
 void renderScene() 
 {
-    // TODO: This function should bind the framebuffer and render the main scene into it.
+    sceneShader->use();
+
+    // Camera settings
+    glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)SCREEN_WIDTH / SCREEN_HEIGHT, 0.1f, 100.0f);
+    glm::mat4 view = camera.GetViewMatrix();
+
+    sceneShader->setMat4("projection", projection);
+    sceneShader->setMat4("view", view);
+
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::translate(model, glm::vec3(0.0f, 0.0f, -3.0f)); // Move back
+    sceneShader->setMat4("model", model);
+
+    // Render the cube
+    glBindVertexArray(quadVAO);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
+
 
 void renderPostProcess() 
 {
