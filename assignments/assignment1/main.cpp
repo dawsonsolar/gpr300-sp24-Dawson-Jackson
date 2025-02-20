@@ -1,5 +1,5 @@
 #include <iostream>
-#include <glad/glad.h>
+#include <ew/external/glad.h>
 #include <GLFW/glfw3.h>
 
 #include "ew/shader.h"
@@ -13,6 +13,8 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 
+using namespace ew;
+
 #define SCREEN_WIDTH 800
 #define SCREEN_HEIGHT 600
 
@@ -21,7 +23,7 @@ GLuint framebuffer, colorTexture, depthBuffer;
 GLuint quadVAO, quadVBO, quadEBO;
 Shader* sceneShader;
 Shader* postProcessShader;
-Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
+Camera camera;
 
 float gammaValue = 2.2f;
 
@@ -88,7 +90,7 @@ void renderScene()
 
     // Camera settings
     glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)SCREEN_WIDTH / SCREEN_HEIGHT, 0.1f, 100.0f);
-    glm::mat4 view = camera.GetViewMatrix();
+    glm::mat4 view = camera.viewMatrix();
 
     sceneShader->setMat4("projection", projection);
     sceneShader->setMat4("view", view);
@@ -106,8 +108,7 @@ void renderScene()
 void renderPostProcess() 
 {
     glBindFramebuffer(GL_FRAMEBUFFER, 0); // Render to screen
-    glClear(GL_COLOR_BUFFER_BIT);
-
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     postProcessShader->use();
     postProcessShader->setFloat("gamma", gammaValue);
     glBindTexture(GL_TEXTURE_2D, colorTexture);
@@ -132,7 +133,7 @@ int main()
         return -1;
     }
     glfwMakeContextCurrent(window);
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) 
+    if (!gladLoadGL(glfwGetProcAddress)) 
     {
         std::cout << "Failed to initialize GLAD" << std::endl;
         return -1;
@@ -146,8 +147,8 @@ int main()
     setupQuad();
 
     // Load shaders
-    sceneShader = new Shader("shaders/scene.vert", "shaders/scene.frag");
-    postProcessShader = new Shader("shaders/postprocess.vert", "shaders/gamma.frag");
+    sceneShader = new Shader("assets/scene.vert", "assets/scene.frag");
+    postProcessShader = new Shader("assets/postprocess.vert", "assets/gamma.frag");
 
     // Initialize ImGui
     IMGUI_CHECKVERSION();
