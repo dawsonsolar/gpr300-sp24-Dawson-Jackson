@@ -20,15 +20,19 @@ using namespace ew;
 
 // Globals
 GLuint framebuffer, colorTexture, depthBuffer;
+GLuint blurFBO[2], blurTexture[2];
 GLuint quadVAO, quadVBO, quadEBO;
 Shader* sceneShader;
-Shader* postProcessShader;
+Shader* gammaShader;
+Shader* blurShader;
 Camera camera;
+Model* suzanneModel;
 
 float gammaValue = 2.2f;
+bool useBlur = false;
 
 // Initialize framebuffer
-void setupFramebuffer() 
+void setupFramebuffer()
 {
     glGenFramebuffers(1, &framebuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -47,16 +51,31 @@ void setupFramebuffer()
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, SCREEN_WIDTH, SCREEN_HEIGHT);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthBuffer);
 
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) 
+    {
         std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
+    }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    // Blur Framebuffers
+    glGenFramebuffers(2, blurFBO);
+    glGenTextures(2, blurTexture);
+    for (unsigned int i = 0; i < 2; i++) 
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, blurFBO[i]);
+        glBindTexture(GL_TEXTURE_2D, blurTexture[i]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, blurTexture[i], 0);
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-// Setup fullscreen quad
-void setupQuad() 
+// fullscreen quad
+void setupQuad()
 {
-    float quadVertices[] = 
+    float quadVertices[] =
     {
         -1.0f,  1.0f,  0.0f,  0.0f, 1.0f,
         -1.0f, -1.0f,  0.0f,  0.0f, 0.0f,
@@ -84,11 +103,14 @@ void setupQuad()
     glBindVertexArray(0);
 }
 
-void renderScene() 
+void renderScene()
 {
     sceneShader->use();
+    sceneShader->setVec3("lightPos", glm::vec3(3.0f, 5.0f, 2.0f));
+    sceneShader->setVec3("viewPos", camera.position);
+    sceneShader->setVec3("lightColor", glm::vec3(1.0f, 1.0f, 1.0f)); 
+    sceneShader->setVec3("objectColor", glm::vec3(1.0f, 0.5f, 0.31f)); 
 
-    // Camera settings
     glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)SCREEN_WIDTH / SCREEN_HEIGHT, 0.1f, 100.0f);
     glm::mat4 view = camera.viewMatrix();
 
@@ -99,107 +121,114 @@ void renderScene()
     model = glm::translate(model, glm::vec3(0.0f, 0.0f, -3.0f)); // Move back
     sceneShader->setMat4("model", model);
 
-    // Render the cube
-    glBindVertexArray(quadVAO);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    suzanneModel->draw();
 }
 
-
-void renderPostProcess() 
+void renderPostProcess()
 {
     glBindFramebuffer(GL_FRAMEBUFFER, 0); // Render to screen
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    postProcessShader->use();
-    postProcessShader->setFloat("gamma", gammaValue);
-    glBindTexture(GL_TEXTURE_2D, colorTexture);
+
+    if (useBlur) {
+        bool horizontal = true, first_iteration = true;
+        int blurAmount = 10;
+
+        blurShader->use();
+        for (unsigned int i = 0; i < blurAmount; i++) {
+            glBindFramebuffer(GL_FRAMEBUFFER, blurFBO[horizontal]);
+            blurShader->setInt("horizontal", horizontal);
+            glBindTexture(GL_TEXTURE_2D, first_iteration ? colorTexture : blurTexture[!horizontal]);
+            glBindVertexArray(quadVAO);
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+            horizontal = !horizontal;
+            if (first_iteration) first_iteration = false;
+        }
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glBindTexture(GL_TEXTURE_2D, blurTexture[!horizontal]);
+    }
+    else {
+        gammaShader->use();
+        gammaShader->setFloat("gamma", gammaValue);
+        glBindTexture(GL_TEXTURE_2D, colorTexture);
+    }
+
     glBindVertexArray(quadVAO);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
 
-int main() 
+int main()
 {
-
-    if (!glfwInit()) 
+    // Initialize GLFW
+    if (!glfwInit())
     {
-        std::cout << "Failed to initialize GLFW" << std::endl;
+        std::cerr << "Failed to initialize GLFW" << std::endl;
         return -1;
     }
 
     GLFWwindow* window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Post Process", NULL, NULL);
-    if (!window) 
+    if (!window)
     {
-        std::cout << "Failed to create GLFW window" << std::endl;
+        std::cerr << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
         return -1;
     }
     glfwMakeContextCurrent(window);
-    if (!gladLoadGL(glfwGetProcAddress)) 
+
+    if (!gladLoadGL(glfwGetProcAddress))
     {
-        std::cout << "Failed to initialize GLAD" << std::endl;
+        std::cerr << "Failed to initialize GLAD" << std::endl;
         return -1;
     }
-
-
 
     // Setup OpenGL
     glEnable(GL_DEPTH_TEST);
     setupFramebuffer();
     setupQuad();
-
-    // Load shaders
+    
+    suzanneModel = new Model("assets/Suzanne.obj");
     sceneShader = new Shader("assets/scene.vert", "assets/scene.frag");
-    postProcessShader = new Shader("assets/postprocess.vert", "assets/gamma.frag");
+    gammaShader = new Shader("assets/postprocess.vert", "assets/gamma.frag");
+    blurShader = new Shader("assets/postprocess.vert", "assets/postprocess.frag");
 
-    // Initialize ImGui
+    // Setup ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
     ImGui::StyleColorsDark();
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init("#version 330 core");
 
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 330");
 
     // Main loop
-    while (!glfwWindowShouldClose(window)) 
+    while (!glfwWindowShouldClose(window))
     {
-        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        renderScene(); // Render scene to framebuffer
+        glfwPollEvents();
 
-        renderPostProcess(); // Apply post-process effect
-
-        // Start ImGui frame
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        // ImGui UI Window
-        ImGui::Begin("Post-Processing Settings");
+        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        renderScene();
+
+        renderPostProcess();
+
+        ImGui::Begin("Settings");
+        ImGui::Checkbox("Use Blur", &useBlur);
         ImGui::SliderFloat("Gamma", &gammaValue, 0.1f, 5.0f);
         ImGui::End();
 
-        // Render ImGui
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         glfwSwapBuffers(window);
-        glfwPollEvents();
     }
 
-    // Cleanup
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
-    glDeleteFramebuffers(1, &framebuffer);
-    glDeleteTextures(1, &colorTexture);
-    glDeleteRenderbuffers(1, &depthBuffer);
-    glDeleteVertexArrays(1, &quadVAO);
-    glDeleteBuffers(1, &quadVBO);
-    glDeleteBuffers(1, &quadEBO);
-    delete sceneShader;
-    delete postProcessShader;
-
-    glfwDestroyWindow(window);
     glfwTerminate();
     return 0;
 }
