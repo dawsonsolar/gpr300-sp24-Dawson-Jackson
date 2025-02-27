@@ -98,7 +98,7 @@ void renderScene(Shader& shader)
     model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.5f, 0.0f));
     shader.setMat4("model", model);
     suzanneModel->draw();
-}
+} 
 
 
 void renderShadowPass() 
@@ -155,14 +155,9 @@ int main()
     glEnable(GL_DEPTH_TEST);
     setupShadowFramebuffer();
     setupPlane();
-    suzanneModel = new Model("assets/Suzanne.obj");
-    if (!suzanneModel)
-    {
-        std::cerr << "failed to load suzanne" << std::endl;
-        return -1;
-    }
-    shadowShader = new Shader("shadow.vert", "shadow.frag");
-    lightingShader = new Shader("lighting.vert", "lighting.frag");
+
+    shadowShader = new Shader("assets/shadow.vert", "assets/shadow.frag");
+    lightingShader = new Shader("assets/lighting.vert", "assets/lighting.frag");
     brickTexture = ew::loadTexture("assets/brick_color.jpg");
 
     // Setup ImGui
