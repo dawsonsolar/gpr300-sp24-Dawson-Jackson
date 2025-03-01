@@ -20,7 +20,7 @@ using namespace ew;
 const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
 
 GLuint shadowFBO, shadowMap;
-GLuint planeVAO, planeVBO;
+GLuint planeVAO, planeVBO, planeEBO;
 Shader* shadowShader, * lightingShader;
 Camera camera;
 Model* suzanneModel;
@@ -66,6 +66,10 @@ void setupPlane()
     glGenVertexArrays(1, &planeVAO);
     glGenBuffers(1, &planeVBO);
     glBindVertexArray(planeVAO);
+    
+    glGenBuffers(1, &planeEBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, planeEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
     glBindBuffer(GL_ARRAY_BUFFER, planeVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(planeVertices), planeVertices, GL_STATIC_DRAW);
@@ -143,6 +147,9 @@ void renderGUI()
         ImGui::Image((ImTextureID)shadowMap, windowSize, ImVec2(0, 1), ImVec2(1, 0));
         ImGui::End();
     }
+
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
 
@@ -156,6 +163,7 @@ int main()
     setupShadowFramebuffer();
     setupPlane();
 
+    suzanneModel = new Model("assets/suzanne.obj");
     shadowShader = new Shader("assets/shadow.vert", "assets/shadow.frag");
     lightingShader = new Shader("assets/lighting.vert", "assets/lighting.frag");
     brickTexture = ew::loadTexture("assets/brick_color.jpg");
@@ -174,15 +182,8 @@ int main()
         computeLightSpaceMatrix();
         renderShadowPass();
         renderLightingPass();
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
-
         renderGUI();
-
-        ImGui::Render();
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
+     
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
