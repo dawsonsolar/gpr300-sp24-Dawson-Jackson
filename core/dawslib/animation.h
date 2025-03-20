@@ -80,7 +80,7 @@ namespace dawslib
                     const Vec3Key& prev = keyFrames[i - 1];
                     const Vec3Key& next = keyFrames[i];
 
-                    float t = (next.mTime - prev.mTime) != 0 ? (playbackTime - prev.mTime) / (next.mTime - prev.mTime) : 0.0f;
+                    float t = glm::clamp((playbackTime - prev.mTime) / (next.mTime - prev.mTime), 0.0f, 1.0f);
                     return Easing(prev.mValue, next.mValue, t, static_cast<EasingMethod>(prev.mMethod));
                 }
             }

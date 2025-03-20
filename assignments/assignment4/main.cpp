@@ -18,7 +18,7 @@
 void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
 void drawUI();
-void drawAnimatorUI();
+void AnimatorUI();
 void resetCamera(ew::Camera* camera, ew::CameraController* controller);
 
 // Global Variables (dont forget the camera this time)
@@ -58,13 +58,13 @@ void drawUI() {
     }
 
     ImGui::End();
-    drawAnimatorUI();
+    AnimatorUI();
 
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
-void drawAnimatorUI() {
+void AnimatorUI() {
     const char* easingNames[] = { "Lerp", "Easing In Out Sine", "Easing In Out Quart", "Easing In Out Back" };
 
     ImGui::Begin("Animator Settings");
@@ -81,7 +81,7 @@ void drawAnimatorUI() {
             for (size_t i = 0; i < keys.size(); i++) {
                 ImGui::PushID(pushID++);
                 ImGui::SliderFloat("Time", &keys[i].mTime, 0.0f, animator.clip->duration);
-                ImGui::DragFloat3("Value", &keys[i].mValue.x);
+                ImGui::DragFloat3("Value", &keys[i].mValue.x, 0.5f);  // Reduced sensitivity for better control of the sliders
                 ImGui::Combo("Interpolation Method", &keys[i].mMethod, easingNames, IM_ARRAYSIZE(easingNames));
                 ImGui::PopID();
             }
@@ -97,6 +97,46 @@ void drawAnimatorUI() {
             ImGui::PopID();
         }
         };
+    /*
+    auto drawKeyframes = [&](const char* label, std::vector<dawslib::Vec3Key>& keys, glm::vec3 defaultValue) {
+        if (ImGui::CollapsingHeader(label)) {
+            int pushID = 0;
+            for (size_t i = 0; i < keys.size(); i++) {
+                ImGui::PushID(pushID++);
+
+                // Ensure you're updating only the correct keyframe, e.g., position, rotation, or scale
+                if (label == "Position Keys") {
+                    // Only modify position components for position keyframe
+                    ImGui::SliderFloat("Time", &keys[i].mTime, 0.0f, animator.clip->duration);
+                    ImGui::DragFloat3("Position Value", &keys[i].mValue.x);
+                }
+                else if (label == "Rotation Keys") {
+                    // Only modify rotation components for rotation keyframe
+                    ImGui::SliderFloat("Time", &keys[i].mTime, 0.0f, animator.clip->duration);
+                    ImGui::DragFloat3("Rotation Value", &keys[i].mValue.x);
+                }
+                else if (label == "Scale Keys") {
+                    // Only modify scale components for scale keyframe
+                    ImGui::SliderFloat("Time", &keys[i].mTime, 0.0f, animator.clip->duration);
+                    ImGui::DragFloat3("Scale Value", &keys[i].mValue.x);
+                }
+
+                ImGui::Combo("Interpolation Method", &keys[i].mMethod, easingNames, IM_ARRAYSIZE(easingNames));
+                ImGui::PopID();
+            }
+
+            ImGui::PushID(pushID++);
+            if (ImGui::Button("Add Keyframe")) {
+                keys.emplace_back(keys.empty() ? 0.0f : animator.clip->duration, defaultValue);
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Remove Keyframe") && !keys.empty()) {
+                keys.pop_back();
+            }
+            ImGui::PopID();
+        }
+        };*/ // do not uncomment this shit is ASS
+
 
     drawKeyframes("Position Keys", animator.clip->positionKeys, glm::vec3(0));
     drawKeyframes("Rotation Keys", animator.clip->rotationKeys, glm::vec3(0));
@@ -163,17 +203,17 @@ int main() {
 
     camera.position = glm::vec3(0.0f, 0.0f, 5.0f);
     camera.target = glm::vec3(0.0f, 0.0f, 0.0f);
-    camera.aspectRatio = (float)screenWidth / screenHeight;  
-    camera.fov = 60.0f;  
+    camera.aspectRatio = (float)screenWidth / screenHeight;
+    camera.fov = 60.0f;
 
     animator.clip = new dawslib::AnimationClip();
     animator.clip->duration = 5;
     animator.isPlaying = true;
     animator.isLooping = true;
- 
+
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
-    glEnable(GL_DEPTH_TEST);  
+    glEnable(GL_DEPTH_TEST);
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
@@ -185,9 +225,20 @@ int main() {
         cameraController.move(window, &camera, deltaTime);
 
         animator.Update(deltaTime);
-        monkeyTransform.position = animator.GetValue(animator.clip->positionKeys, glm::vec3(0));
-        monkeyTransform.rotation = animator.GetValue(animator.clip->rotationKeys, glm::vec3(0)) / 180.0f * 3.141592653589793238462643383279502884197169399375105820974944f;
-        monkeyTransform.scale = animator.GetValue(animator.clip->scaleKeys, glm::vec3(1));
+
+        // Ensure transformations are applied independently
+        glm::vec3 newPosition = animator.GetValue(animator.clip->positionKeys, glm::vec3(0));
+        glm::vec3 newRotation = animator.GetValue(animator.clip->rotationKeys, glm::vec3(0));
+        glm::vec3 newScale = animator.GetValue(animator.clip->scaleKeys, glm::vec3(1));
+
+        // Apply position
+        monkeyTransform.position = newPosition;
+
+        // Apply rotation (converting degrees to radians)
+        monkeyTransform.rotation = glm::radians(newRotation);
+
+        // Apply scale
+        monkeyTransform.scale = newScale;
 
         glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -208,7 +259,7 @@ int main() {
 
 
         shader.setMat4("_Model", monkeyTransform.modelMatrix());
-        monkeyModel.draw();  
+        monkeyModel.draw();
 
         drawUI();
 
