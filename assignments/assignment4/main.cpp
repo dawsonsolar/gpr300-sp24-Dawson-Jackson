@@ -32,21 +32,24 @@ int screenHeight = 720;
 float prevFrameTime = 0.0f;
 float deltaTime = 0.0f;
 
-struct Material {
+struct Material 
+{
     float Ka = 1.0f;
     float Kd = 0.5f;
     float Ks = 0.5f;
     float Shininess = 128.0f;
 } material;
 
-void drawUI() {
+void drawUI() 
+{
     ImGui_ImplGlfw_NewFrame();
     ImGui_ImplOpenGL3_NewFrame();
     ImGui::NewFrame();
 
     ImGui::Begin("Settings");
 
-    if (ImGui::Button("Reset Camera")) {
+    if (ImGui::Button("Reset Camera")) 
+    {
         resetCamera(&camera, &cameraController);
     }
 
@@ -64,8 +67,9 @@ void drawUI() {
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
-void AnimatorUI() {
-    const char* easingNames[] = { "Lerp", "Easing In Out Sine", "Easing In Out Quart", "Easing In Out Back" };
+void AnimatorUI() 
+{
+    const char* easingNames[] = { "Lerp", "In Out Sine", "In Out Quart", "In Out Back" };
 
     ImGui::Begin("Animator Settings");
     ImGui::Checkbox("Playing", &animator.isPlaying);
@@ -74,102 +78,75 @@ void AnimatorUI() {
     ImGui::SliderFloat("Playback Time", &animator.playbackTime, 0.0f, animator.clip->duration);
     ImGui::DragFloat("Duration", &animator.clip->duration);
 
-    // Helper function to manage keyframes
-    auto drawKeyframes = [&](const char* label, std::vector<dawslib::Vec3Key>& keys, glm::vec3 defaultValue) {
-        if (ImGui::CollapsingHeader(label)) {
-            int pushID = 0;
-            for (size_t i = 0; i < keys.size(); i++) {
-                ImGui::PushID(pushID++);
+    auto drawKeyframes = [&](const char* label, std::vector<dawslib::Vec3Key>& keys, const glm::vec3& defaultValue) 
+        {
+        if (ImGui::CollapsingHeader(label)) 
+        {
+            for (size_t i = 0; i < keys.size(); ++i) 
+            {
+                ImGui::PushID((std::string(label) + std::to_string(i)).c_str());  
                 ImGui::SliderFloat("Time", &keys[i].mTime, 0.0f, animator.clip->duration);
-                ImGui::DragFloat3("Value", &keys[i].mValue.x, 0.5f);  // Reduced sensitivity for better control of the sliders
+                ImGui::DragFloat3("Value", &keys[i].mValue.x, 0.1f);
                 ImGui::Combo("Interpolation Method", &keys[i].mMethod, easingNames, IM_ARRAYSIZE(easingNames));
                 ImGui::PopID();
             }
 
-            ImGui::PushID(pushID++);
-            if (ImGui::Button("Add Keyframe")) {
-                keys.emplace_back(keys.empty() ? 0.0f : animator.clip->duration, defaultValue);
+            ImGui::PushID(label);
+            if (ImGui::Button(std::string("Add " + std::string(label)).c_str()))
+            {
+                glm::vec3 lastValue = keys.empty() ? defaultValue : keys.back().mValue;
+                keys.emplace_back(animator.clip->duration, lastValue);
             }
             ImGui::SameLine();
-            if (ImGui::Button("Remove Keyframe") && !keys.empty()) {
+            if (ImGui::Button(std::string("Remove " + std::string(label)).c_str()) && !keys.empty())
+            {
                 keys.pop_back();
             }
             ImGui::PopID();
         }
         };
-    /*
-    auto drawKeyframes = [&](const char* label, std::vector<dawslib::Vec3Key>& keys, glm::vec3 defaultValue) {
-        if (ImGui::CollapsingHeader(label)) {
-            int pushID = 0;
-            for (size_t i = 0; i < keys.size(); i++) {
-                ImGui::PushID(pushID++);
 
-                // Ensure you're updating only the correct keyframe, e.g., position, rotation, or scale
-                if (label == "Position Keys") {
-                    // Only modify position components for position keyframe
-                    ImGui::SliderFloat("Time", &keys[i].mTime, 0.0f, animator.clip->duration);
-                    ImGui::DragFloat3("Position Value", &keys[i].mValue.x);
-                }
-                else if (label == "Rotation Keys") {
-                    // Only modify rotation components for rotation keyframe
-                    ImGui::SliderFloat("Time", &keys[i].mTime, 0.0f, animator.clip->duration);
-                    ImGui::DragFloat3("Rotation Value", &keys[i].mValue.x);
-                }
-                else if (label == "Scale Keys") {
-                    // Only modify scale components for scale keyframe
-                    ImGui::SliderFloat("Time", &keys[i].mTime, 0.0f, animator.clip->duration);
-                    ImGui::DragFloat3("Scale Value", &keys[i].mValue.x);
-                }
-
-                ImGui::Combo("Interpolation Method", &keys[i].mMethod, easingNames, IM_ARRAYSIZE(easingNames));
-                ImGui::PopID();
-            }
-
-            ImGui::PushID(pushID++);
-            if (ImGui::Button("Add Keyframe")) {
-                keys.emplace_back(keys.empty() ? 0.0f : animator.clip->duration, defaultValue);
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Remove Keyframe") && !keys.empty()) {
-                keys.pop_back();
-            }
-            ImGui::PopID();
-        }
-        };*/ // do not uncomment this shit is ASS
-
-
-    drawKeyframes("Position Keys", animator.clip->positionKeys, glm::vec3(0));
-    drawKeyframes("Rotation Keys", animator.clip->rotationKeys, glm::vec3(0));
-    drawKeyframes("Scale Keys", animator.clip->scaleKeys, glm::vec3(1));
+    drawKeyframes("Position Keys", animator.clip->positionKeys, glm::vec3(0.0f));
+    drawKeyframes("Rotation Keys", animator.clip->rotationKeys, glm::vec3(0.0f));
+    drawKeyframes("Scale Keys", animator.clip->scaleKeys, glm::vec3(1.0f));
 
     ImGui::End();
 }
 
+
+
+
+
 /// Handles framebuffer size change events
-void framebufferSizeCallback(GLFWwindow* window, int width, int height) {
+void framebufferSizeCallback(GLFWwindow* window, int width, int height) 
+{
     glViewport(0, 0, width, height);
     screenWidth = width;
     screenHeight = height;
 }
 
 /// Initializes GLFW, GLAD, and IMGUI
-GLFWwindow* initWindow(const char* title, int width, int height) {
+GLFWwindow* initWindow(const char* title, int width, int height) 
+{
     printf("Initializing...\n");
 
-    if (!glfwInit()) {
+    if (!glfwInit()) 
+    {
         printf("GLFW failed to initialize!\n");
         return nullptr;
     }
 
     GLFWwindow* window = glfwCreateWindow(width, height, title, nullptr, nullptr);
-    if (!window) {
+    if (!window) 
+    {
         printf("GLFW failed to create window!\n");
         return nullptr;
     }
 
     glfwMakeContextCurrent(window);
 
-    if (!gladLoadGL(glfwGetProcAddress)) {
+    if (!gladLoadGL(glfwGetProcAddress)) 
+    {
         printf("GLAD failed to load OpenGL!\n");
         return nullptr;
     }
@@ -183,7 +160,8 @@ GLFWwindow* initWindow(const char* title, int width, int height) {
 }
 
 /// Resets the camera position and controller settings
-void resetCamera(ew::Camera* camera, ew::CameraController* controller) {
+void resetCamera(ew::Camera* camera, ew::CameraController* controller) 
+{
     camera->position = glm::vec3(0, 0, 5.0f);
     camera->target = glm::vec3(0);
     controller->yaw = 0;
@@ -191,7 +169,8 @@ void resetCamera(ew::Camera* camera, ew::CameraController* controller) {
 }
 
 
-int main() {
+int main() 
+{
     GLFWwindow* window = initWindow("Assignment 4", screenWidth, screenHeight);
     glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
     ew::Shader shader = ew::Shader("assets/lit.vert", "assets/lit.frag");
@@ -215,7 +194,8 @@ int main() {
     glCullFace(GL_BACK);
     glEnable(GL_DEPTH_TEST);
 
-    while (!glfwWindowShouldClose(window)) {
+    while (!glfwWindowShouldClose(window)) 
+    {
         glfwPollEvents();
 
         float time = (float)glfwGetTime();
