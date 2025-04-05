@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <math.h>
-
 #include <ew/external/glad.h>
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -79,7 +78,7 @@ void AnimatorUI()
     ImGui::DragFloat("Duration", &animator.clip->duration);
 
     auto drawKeyframes = [&](const char* label, std::vector<dawslib::Vec3Key>& keys, const glm::vec3& defaultValue) 
-        {
+    {
         if (ImGui::CollapsingHeader(label)) 
         {
             for (size_t i = 0; i < keys.size(); ++i) 
@@ -104,7 +103,7 @@ void AnimatorUI()
             }
             ImGui::PopID();
         }
-        };
+    };
 
     drawKeyframes("Position Keys", animator.clip->positionKeys, glm::vec3(0.0f));
     drawKeyframes("Rotation Keys", animator.clip->rotationKeys, glm::vec3(0.0f));

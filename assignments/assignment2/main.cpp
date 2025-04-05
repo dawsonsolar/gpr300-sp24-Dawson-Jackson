@@ -131,7 +131,7 @@ void renderLightingPass()
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, shadowMap);
 
-    // Set camera's view and projection matrices
+    // Don't forget the camera
     lightingShader->setMat4("view", camera.viewMatrix());
     lightingShader->setMat4("projection", camera.projectionMatrix());
 

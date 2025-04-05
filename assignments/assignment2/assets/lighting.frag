@@ -12,15 +12,19 @@ out vec4 FragColor;
 
 float ShadowCalculation(vec4 fragPosLightSpace) // Going to comment here to both get used to it and I remember what everything does.
 {
-    // Perform the division to get the normalized depth value
+    // Division to get the normalized depth value
     vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
     projCoords = projCoords * 0.5 + 0.5; // Transform to (0, 1) range
 
     float closestDepth = texture(shadowMap, projCoords.xy).r;
     float currentDepth = projCoords.z;
 
+    // Shadow bias to clean up acne
+    float bias = max(0.005 * (1.0 - dot(normalize(Normal), -lightDir)), 0.001);
+    bias = clamp(bias * (1.0 / fragPosLightSpace.w), 0.0005, 0.01);
+
     // Check if we are in shadow
-    float shadow = currentDepth > closestDepth ? 0.5 : 1.0;
+    float shadow = currentDepth - bias > closestDepth ? 0.5 : 1.0;
     return shadow;
 }
 

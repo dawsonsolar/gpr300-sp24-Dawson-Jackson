@@ -15,9 +15,9 @@ namespace dawslib
     enum class EasingMethod
     {
         Lerp,
-        EaseInOutSine,
-        EaseInOutQuart,
-        EaseInOutBack
+        InOutSine,
+        InOutQuart,
+        InOutBack
     };
 
     struct Vec3Key
@@ -93,9 +93,9 @@ namespace dawslib
             switch (method)
             {
             case EasingMethod::Lerp: return glm::mix(a, b, t);
-            case EasingMethod::EaseInOutSine: return EaseInOutSine(a, b, t);
-            case EasingMethod::EaseInOutQuart: return EaseInOutQuart(a, b, t);
-            case EasingMethod::EaseInOutBack: return EaseInOutBack(a, b, t);
+            case EasingMethod::InOutSine: return EaseInOutSine(a, b, t);
+            case EasingMethod::InOutQuart: return EaseInOutQuart(a, b, t);
+            case EasingMethod::InOutBack: return EaseInOutBack(a, b, t);
             default: return glm::mix(a, b, t);
             }
         }
