@@ -64,6 +64,7 @@ struct Decal
     glm::vec3 scale = glm::vec3(1.0f);
     glm::vec3 rotation = glm::vec3(0.0f); // In degrees (Euler angles)
     glm::vec3 color = glm::vec3(1.0f);
+    int textureIndex = 0;
 };
 
 std::vector<Decal> decals;
@@ -430,6 +431,12 @@ void renderDecalPass()
         decalShader->setMat4("model", model);
         decalShader->setMat4("decalModelInverse", glm::inverse(model));
 
+        // Bind the decal's selected texture
+        glActiveTexture(GL_TEXTURE4);
+        glBindTexture(GL_TEXTURE_2D, decalTextures[decal.textureIndex]);
+        decalShader->setInt("decalTex", 4);
+
+        glBindVertexArray(decalVAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
     }
 
@@ -509,11 +516,26 @@ void renderGUI()
 
     for (int i = 0; i < decals.size(); ++i)
     {
+        const char* decalNames[] = { "Bullet Hole", "Blood Splatter", "Esports Logo" };
+        const char* currentDecalName = decalNames[decals[i].textureIndex];
+
         ImGui::PushID(i);
         ImGui::Text("Decal %d", i);
         ImGui::DragFloat3("Position", &decals[i].position.x, 0.1f);
         ImGui::DragFloat3("Scale", &decals[i].scale.x, 0.05f, 0.05f, 5.0f);
         ImGui::DragFloat3("Rotation", &decals[i].rotation.x, 1.0f, -180.0f, 180.0f);
+        if (ImGui::BeginCombo("Texture", currentDecalName))
+        {
+            for (int j = 0; j < 3; j++)
+            {
+                bool isSelected = (decals[i].textureIndex == j);
+                if (ImGui::Selectable(decalNames[j], isSelected))
+                    decals[i].textureIndex = j;
+                if (isSelected)
+                    ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+        }
         if (ImGui::Button("Delete"))
         {
             decals.erase(decals.begin() + i);
