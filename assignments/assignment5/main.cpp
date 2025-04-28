@@ -1,3 +1,5 @@
+// Help from Atle Tolley
+
 #include <stdio.h>
 #include <math.h>
 
@@ -75,22 +77,9 @@ glm::vec3 VecFy(float right[])
 	return ret;
 }
 
-glm::quat EulToQuat(float eul[]) 
+glm::quat eulToQuat(const float eul[3]) 
 {
-	double cr = cos(eul[0] * 0.5);
-	double sr = sin(eul[0] * 0.5);
-	double cp = cos(eul[1] * 0.5);
-	double sp = sin(eul[1] * 0.5);
-	double cy = cos(eul[2] * 0.5);
-	double sy = sin(eul[2] * 0.5);
-
-	glm::quat q;
-	q.w = cr * cp * cy + sr * sp * sy;
-	q.x = sr * cp * cy - cr * sp * sy;
-	q.y = cr * sp * cy + sr * cp * sy;
-	q.z = cr * cp * sy - sr * sp * cy;
-
-	return q;
+	return glm::quat(glm::vec3(eul[0], eul[1], eul[2]));
 }
 
 float Lerp(float A, float B, float time) 
@@ -143,14 +132,10 @@ glm::vec3 VecLerp(glm::vec3 left, glm::vec3 right, float time)
 	return ret;
 }
 
+// Spline Interpolation
 glm::vec3 SplinePosLerp(Spline input, float time) 
 {
-	glm::vec3 ret;
-	glm::vec3 a;
-	glm::vec3 b;
-	glm::vec3 c;
-	glm::vec3 d;
-	glm::vec3 e;
+	glm::vec3 ret, a, b, c, d, e;
 	a = VecLerp(VecFy(input.controls[0].pos), VecFy(input.controls[1].pos), time);
 	b = VecLerp(VecFy(input.controls[1].pos), VecFy(input.controls[2].pos), time);
 	c = VecLerp(VecFy(input.controls[2].pos), VecFy(input.controls[3].pos), time);
@@ -162,12 +147,7 @@ glm::vec3 SplinePosLerp(Spline input, float time)
 
 glm::vec3 SplineScaLerp(Spline input, float time) 
 {
-	glm::vec3 ret;
-	glm::vec3 a;
-	glm::vec3 b;
-	glm::vec3 c;
-	glm::vec3 d;
-	glm::vec3 e;
+	glm::vec3 ret, a, b, c, d, e;
 	a = VecLerp(VecFy(input.controls[0].sca), VecFy(input.controls[1].sca), time);
 	b = VecLerp(VecFy(input.controls[1].sca), VecFy(input.controls[2].sca), time);
 	c = VecLerp(VecFy(input.controls[2].sca), VecFy(input.controls[3].sca), time);
@@ -179,15 +159,10 @@ glm::vec3 SplineScaLerp(Spline input, float time)
 
 glm::quat SplineSLerp(Spline input, float time) 
 {
-	glm::quat ret;
-	glm::quat a;
-	glm::quat b;
-	glm::quat c;
-	glm::quat d;
-	glm::quat e;
-	a = SLerp(EulToQuat(input.controls[0].rot), EulToQuat(input.controls[1].rot), time);
-	b = SLerp(EulToQuat(input.controls[1].rot), EulToQuat(input.controls[2].rot), time);
-	c = SLerp(EulToQuat(input.controls[2].rot), EulToQuat(input.controls[3].rot), time);
+	glm::quat ret, a, b, c, d, e;
+	a = SLerp(eulToQuat(input.controls[0].rot), eulToQuat(input.controls[1].rot), time);
+	b = SLerp(eulToQuat(input.controls[1].rot), eulToQuat(input.controls[2].rot), time);
+	c = SLerp(eulToQuat(input.controls[2].rot), eulToQuat(input.controls[3].rot), time);
 	d = SLerp(a, b, time);
 	e = SLerp(b, c, time);
 	ret = SLerp(d, e, time);
@@ -198,7 +173,8 @@ void drawSpline(const Spline& input)
 {
 	static GLuint vao = 0, vbo = 0;
 
-	if (!vao) {
+	if (!vao) 
+	{
 		glGenVertexArrays(1, &vao);
 		glGenBuffers(1, &vbo);
 	}
@@ -206,10 +182,12 @@ void drawSpline(const Spline& input)
 	glBindVertexArray(vao);
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
-	for (int i = 0; i < splineSegments; i++) {
+	for (int i = 0; i < splineSegments; i++) 
+	{
 		glm::vec3 one = SplinePosLerp(input, i / float(splineSegments));
 		glm::vec3 two = SplinePosLerp(input, (i + 1) / float(splineSegments));
-		float quadVertices[] = {
+		float quadVertices[] =
+		{
 			one.x, one.y, one.z, 1.0f, 0.0f, 0.0f,
 			two.x, two.y, two.z, 1.0f, 0.0f, 0.0f
 		};
@@ -229,17 +207,15 @@ void drawSpline(const Spline& input)
 glm::vec3 RotateVec3(glm::vec3 input, glm::quat rotate) 
 {
 	glm::vec3 ret;
-
 	glm::quat rotNorm = glm::normalize(rotate);
 	glm::vec3 rotVec = glm::vec3(rotNorm.x, rotNorm.y, rotNorm.z);
-
 	float s = rotate.w;
-
 	ret = 2.0f * glm::dot(rotVec, input) * rotVec + (s * s - glm::dot(rotVec, rotVec)) * input + 2.0f * s * glm::cross(rotVec, input);
-
 	return ret;
 }
 
+
+// Math for C1 Continuity
 void UpdateSpline(int index) 
 {
 	if (index > 0) 
@@ -254,10 +230,10 @@ void UpdateSpline(int index)
 	}
 	glm::vec3 c1fk1 = glm::vec3(1.0f, 0.0f, 0.0f);
 	c1fk1 = c1fk1 * splines[index]->startSize;
-	c1fk1 = RotateVec3(c1fk1, EulToQuat(splines[index]->controls[0].rot));
+	c1fk1 = RotateVec3(c1fk1, eulToQuat(splines[index]->controls[0].rot));
 	glm::vec3 c2fk2 = glm::vec3(-1.0f, 0.0f, 0.0f);
 	c2fk2 = c2fk2 * splines[index]->endSize;
-	c2fk2 = RotateVec3(c2fk2, EulToQuat(splines[index]->controls[3].rot));
+	c2fk2 = RotateVec3(c2fk2, eulToQuat(splines[index]->controls[3].rot));
 	for (int i = 0; i < 3; i++) 
 	{
 		splines[index]->controls[1].pos[i] = splines[index]->controls[0].pos[i] + c1fk1[i];
@@ -369,13 +345,25 @@ int main()
 		camCon.move(window, &cam, deltaTime);
 		shader.setVec3("_EyePos", cam.position);
 
-		for (int i = 0; i < splines.size(); i++) 
+	// Make suzzane face the direction of the spline
+		for (int i = 0; i < splines.size(); i++)
 		{
-			if (timeExposure > (float)i && timeExposure < (i + 1.0f)) 
+			if (timeExposure > (float)i && timeExposure < (i + 1.0f))
 			{
-				monkeyTrans.position = SplinePosLerp(*splines[i], timeExposure - (float)i);
-				monkeyTrans.rotation = SplineSLerp(*splines[i], timeExposure - (float)i);
-				monkeyTrans.scale = SplineScaLerp(*splines[i], timeExposure - (float)i);
+				float localTime = timeExposure - (float)i;
+
+				glm::vec3 currPos = SplinePosLerp(*splines[i], localTime);
+				glm::vec3 nextPos = SplinePosLerp(*splines[i], glm::min(localTime + 0.01f, 1.0f));
+				glm::vec3 dir = glm::normalize(nextPos - currPos);
+				if (glm::length(dir) > 0.0001f)
+				{
+					glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
+					glm::mat4 lookMat = glm::lookAt(glm::vec3(0.0f), -dir, up);
+					monkeyTrans.rotation = glm::quat_cast(glm::inverse(lookMat));
+				}
+
+				monkeyTrans.position = currPos;
+				monkeyTrans.scale = SplineScaLerp(*splines[i], localTime);
 			}
 		}
 
@@ -405,21 +393,21 @@ int main()
 		plane.draw();
 
 		pointsTrans.position = VecFy(splines[0]->controls[0].pos);
-		pointsTrans.rotation = EulToQuat(splines[0]->controls[0].rot);
+		pointsTrans.rotation = eulToQuat(splines[0]->controls[0].rot);
 		shadow.setMat4("_Model", pointsTrans.modelMatrix());
 		splinePoint.draw();
 		for (int i = 0; i < splines.size(); i++) 
 		{
 			pointsTrans.position = VecFy(splines[i]->controls[1].pos);
-			pointsTrans.rotation = EulToQuat(splines[i]->controls[1].rot);
+			pointsTrans.rotation = eulToQuat(splines[i]->controls[1].rot);
 			shadow.setMat4("_Model", pointsTrans.modelMatrix());
 			pointLight.draw();
 			pointsTrans.position = VecFy(splines[i]->controls[2].pos);
-			pointsTrans.rotation = EulToQuat(splines[i]->controls[2].rot);
+			pointsTrans.rotation = eulToQuat(splines[i]->controls[2].rot);
 			shadow.setMat4("_Model", pointsTrans.modelMatrix());
 			pointLight.draw();
 			pointsTrans.position = VecFy(splines[i]->controls[3].pos);
-			pointsTrans.rotation = EulToQuat(splines[i]->controls[3].rot);
+			pointsTrans.rotation = eulToQuat(splines[i]->controls[3].rot);
 			shadow.setMat4("_Model", pointsTrans.modelMatrix());
 			splinePoint.draw();
 		}
@@ -454,20 +442,21 @@ int main()
 			pointLight.draw();
 
 			pointsTrans.position = VecFy(splines[0]->controls[0].pos);
-			pointsTrans.rotation = EulToQuat(splines[0]->controls[0].rot);
+			pointsTrans.rotation = eulToQuat(splines[0]->controls[0].rot);
 			shaded.setMat4("_Model", pointsTrans.modelMatrix());
 			splinePoint.draw();
-			for (int i = 0; i < splines.size(); i++) {
+			for (int i = 0; i < splines.size(); i++)
+			{
 				pointsTrans.position = VecFy(splines[i]->controls[1].pos);
-				pointsTrans.rotation = EulToQuat(splines[i]->controls[1].rot);
+				pointsTrans.rotation = eulToQuat(splines[i]->controls[1].rot);
 				shaded.setMat4("_Model", pointsTrans.modelMatrix());
 				pointLight.draw();
 				pointsTrans.position = VecFy(splines[i]->controls[2].pos);
-				pointsTrans.rotation = EulToQuat(splines[i]->controls[2].rot);
+				pointsTrans.rotation = eulToQuat(splines[i]->controls[2].rot);
 				shaded.setMat4("_Model", pointsTrans.modelMatrix());
 				pointLight.draw();
 				pointsTrans.position = VecFy(splines[i]->controls[3].pos);
-				pointsTrans.rotation = EulToQuat(splines[i]->controls[3].rot);
+				pointsTrans.rotation = eulToQuat(splines[i]->controls[3].rot);
 				shaded.setMat4("_Model", pointsTrans.modelMatrix());
 				splinePoint.draw();
 				shaded.setMat4("_Model", linesTrans.modelMatrix());
@@ -495,21 +484,21 @@ int main()
 
 
 			pointsTrans.position = VecFy(splines[0]->controls[0].pos);
-			pointsTrans.rotation = EulToQuat(splines[0]->controls[0].rot);
+			pointsTrans.rotation = eulToQuat(splines[0]->controls[0].rot);
 			shaded.setMat4("_Model", pointsTrans.modelMatrix());
 			splinePoint.draw();
 			for (int i = 0; i < splines.size(); i++) 
 			{
 				pointsTrans.position = VecFy(splines[i]->controls[1].pos);
-				pointsTrans.rotation = EulToQuat(splines[i]->controls[1].rot);
+				pointsTrans.rotation = eulToQuat(splines[i]->controls[1].rot);
 				shaded.setMat4("_Model", pointsTrans.modelMatrix());
 				pointLight.draw();
 				pointsTrans.position = VecFy(splines[i]->controls[2].pos);
-				pointsTrans.rotation = EulToQuat(splines[i]->controls[2].rot);
+				pointsTrans.rotation = eulToQuat(splines[i]->controls[2].rot);
 				shaded.setMat4("_Model", pointsTrans.modelMatrix());
 				pointLight.draw();
 				pointsTrans.position = VecFy(splines[i]->controls[3].pos);
-				pointsTrans.rotation = EulToQuat(splines[i]->controls[3].rot);
+				pointsTrans.rotation = eulToQuat(splines[i]->controls[3].rot);
 				shaded.setMat4("_Model", pointsTrans.modelMatrix());
 				splinePoint.draw();
 				shaded.setMat4("_Model", linesTrans.modelMatrix());
@@ -587,7 +576,6 @@ void drawUI()
 					{
 						ImGui::DragFloat3("Position", splines[0]->controls[0].pos, 0.1f, -10.0f, 10.0f);
 						ImGui::DragFloat3("Rotation", splines[0]->controls[0].rot, 0.1f, -10.0f, 10.0f);
-						ImGui::DragFloat3("Scale", splines[0]->controls[0].sca, 0.1f, -10.0f, 10.0f);
 						ImGui::DragFloat("Knot Size", &splines[0]->startSize, 0.05f, 0.1f, 5.0f);
 					}
 				}
@@ -595,20 +583,17 @@ void drawUI()
 				if (ImGui::CollapsingHeader(one.c_str())) 
 				{
 					ImGui::DragFloat3("End: Rotation", splines[i]->controls[1].rot, 0.1f, -10.0f, 10.0f);
-					ImGui::DragFloat3("End: Scale", splines[i]->controls[1].sca, 0.1f, -10.0f, 10.0f);
 				}
 				std::string two = std::string(std::to_string(i) + ": Sub 2");
 				if (ImGui::CollapsingHeader(two.c_str())) 
 				{
 					ImGui::DragFloat3("End: Rotation", splines[i]->controls[2].rot, 0.1f, -10.0f, 10.0f);
-					ImGui::DragFloat3("End: Scale", splines[i]->controls[2].sca, 0.1f, -10.0f, 10.0f);
 				}
 				std::string three = std::string(std::to_string(i) + ": End Point");
 				if (ImGui::CollapsingHeader(three.c_str())) 
 				{
 					ImGui::DragFloat3("End: Position", splines[i]->controls[3].pos, 0.1f, -10.0f, 10.0f);
 					ImGui::DragFloat3("End: Rotation", splines[i]->controls[3].rot, 0.1f, -10.0f, 10.0f);
-					ImGui::DragFloat3("End: Scale", splines[i]->controls[3].sca, 0.1f, -10.0f, 10.0f);
 					ImGui::DragFloat("End: Knot Size", &splines[i]->endSize, 0.05f, 0.1f, 5.0f);
 				}
 			}
